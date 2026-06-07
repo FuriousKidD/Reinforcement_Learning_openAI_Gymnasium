@@ -1,0 +1,180 @@
+================================================================
+DQN LUNARLANDER - PROJECT INSTRUCTIONS
+================================================================
+A Deep Q-Network agent trained to solve the LunarLander-v3
+environment using a custom NumPy-based MLP implementation.
+================================================================
+
+
+----------------------------------------------------------------
+PROJECT STRUCTURE
+----------------------------------------------------------------
+
+LunarLanderProject/
+|
++-- pipeline.py                        (START HERE - runs everything)
++-- run_experiments.py                 (Trains all seeds in parallel)
++-- aggregator.py                      (Generates cross-seed variance plots)
+|
++-- Lander_Environment/
+|   +-- Agent.py                       (DQNAgent - training loop, evaluation)
+|   +-- Lunar_Environment.py           (Gymnasium environment wrapper)
+|   +-- Replay_Buffer.py               (Experience replay buffer)
+|   +-- play_back.py                   (Renders the trained agent - demo)
+|   |
+|   +-- Neural_Network_package/
+|   |   +-- modular_mlp.py             (Custom MLP - forward/backward pass)
+|   |   +-- linearLayer.py             (Linear layer implementation)
+|   |   +-- activation_functions.py    (ReLU, identity activations)
+|   |
+|   +-- Metrics/
+|   |   +-- logger.py                  (Logs training/evaluation to CSV)
+|   |   +-- plots.py                   (Per-seed plot generation)
+|   |
+|   +-- Data/                          (Auto-created during training)
+|       +-- *_training.csv             (Per-episode training metrics)
+|       +-- *_evaluation.csv           (Periodic greedy evaluation results)
+|       +-- *_performance.png          (Reward vs exploration plot)
+|       +-- *_loss.png                 (TD loss curve)
+|       +-- *_stability.png            (Episode length - policy stability)
+|       +-- aggregated_reward.png      (Mean +/- std reward across all seeds)
+|       +-- aggregated_loss.png        (Mean +/- std loss across all seeds)
+|       +-- aggregated_steps.png       (Mean +/- std episode length)
+|       +-- best_model_*.pkl           (Saved best model per seed)
+
+
+----------------------------------------------------------------
+REQUIREMENTS
+----------------------------------------------------------------
+
+Python 3.10+
+
+Install dependencies:
+    pip install gymnasium[box2d] numpy matplotlib pandas
+
+If box2d fails on Windows:
+    pip install gymnasium[box2d] --pre
+
+
+----------------------------------------------------------------
+HOW TO RUN - QUICKSTART
+----------------------------------------------------------------
+
+The easiest way to run everything is through the pipeline:
+
+    python pipeline.py
+
+This will prompt you step by step:
+    Step 1 - Train all seeds (parallel, ~70 min on 8 cores)
+    Step 2 - Generate aggregated variance band plots
+    Step 3 - Render the best trained agent (visual demo)
+
+You can skip any step if it has already been completed.
+
+
+----------------------------------------------------------------
+HOW TO RUN - INDIVIDUAL SCRIPTS
+----------------------------------------------------------------
+
+1. TRAINING (all seeds, parallel):
+       python run_experiments.py
+
+   Seeds and episode count are configured at the top of this file:
+       SEEDS        = [42, 123, 7, 99, 256, 13, 17, 37, 77, 200]
+       NUM_EPISODES = 1000
+
+   Output saved to: Lander_Environment/Data/
+
+2. AGGREGATION (variance band plots across seeds):
+       python aggregator.py
+
+   Run this after all training seeds have completed.
+   Output: aggregated_reward.png, aggregated_loss.png,
+           aggregated_steps.png (saved to Data/)
+
+3. DEMO (render the trained agent):
+       cd Lander_Environment
+       python play_back.py
+
+   This loads the best saved model and renders 5 episodes
+   visually. A gymnasium window will open showing the lander.
+
+4. SINGLE SEED (for testing or re-running one seed):
+       cd Lander_Environment
+       TRAINING_SEED=42 NUM_EPISODES=1000 python Agent.py
+
+   On Windows (PowerShell):
+       $env:TRAINING_SEED="42"; $env:NUM_EPISODES="1000"; python Agent.py
+
+
+----------------------------------------------------------------
+KEY HYPERPARAMETERS
+----------------------------------------------------------------
+
+Parameter               Value       Location
+-----------------------------------------------------------------
+learning_rate           0.001       Agent.py __init__
+gamma                   0.99        Agent.py __init__
+batch_size              128         Agent.py __init__
+sync_interval           2000        Agent.py __init__
+epsilon_start           1.0         Agent.py training_loop
+epsilon_min             0.05        Agent.py training_loop
+epsilon decay fraction  0.6         Agent.py training_loop
+lr decay fraction       0.9         Agent.py training_loop
+lr_min                  0.00001     Agent.py training_loop
+warmup threshold        5000        Agent.py training_loop
+gradient clip           (-2.0, 2.0) Agent.py training_loop
+replay buffer capacity  100000      Replay_Buffer.py __init__
+network architecture    8->128->128->4  Agent.py Q_network_initialization
+
+
+----------------------------------------------------------------
+OUTPUT FILES EXPLAINED
+----------------------------------------------------------------
+
+*_training.csv
+    One row per episode. Columns: Episode, Total_Reward, Steps,
+    Epsilon, Learning_Rate, Average_Loss, Action_0..3_Percentage.
+
+*_evaluation.csv
+    One row per evaluation checkpoint (every 50 episodes).
+    Columns: Episode, Average_Reward, Maximum_Reward, Minimum_Reward.
+    Evaluation is greedy (epsilon=0) over 10 episodes.
+
+*_performance.png
+    Training reward (smoothed) and evaluation reward vs episode,
+    with epsilon decay overlaid on a secondary axis.
+
+*_loss.png
+    Smoothed TD loss over training. Expect loss to rise during
+    early learning then plateau or decline as policy stabilises.
+
+*_stability.png
+    Smoothed episode length over training. Long episodes indicate
+    the agent is surviving longer (hovering). Short episodes
+    indicate crashes (early termination).
+
+aggregated_*.png
+    Mean +/- 1 standard deviation band computed across all seeds.
+    Narrow bands indicate consistent learning across initialisations.
+
+
+----------------------------------------------------------------
+NOTES
+----------------------------------------------------------------
+
+- Training runs are seeded via numpy.random.seed(seed) for
+  reproducibility. Re-running the same seed produces identical
+  results given the same hyperparameters.
+
+- The best model per seed is saved automatically whenever a new
+  evaluation average reward exceeds the previous best.
+
+- play_back.py loads best_model.pkl by default. If that file does
+  not exist, run pipeline.py Step 3 - it will list all available
+  saved models and let you choose.
+
+- LunarLander-v3 is considered solved at an average evaluation
+  reward of 200 over 100 consecutive episodes.
+
+================================================================
